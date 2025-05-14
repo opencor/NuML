@@ -30,7 +30,7 @@ import os
 import sys
 import shutil
 import platform
-import sysconfig 
+import sysconfig
 from os.path import abspath, exists, join, split
 
 from setuptools import setup, Extension
@@ -42,6 +42,16 @@ def get_python_include():
     return path
   # for whatever reason 2.7 on centos returns a wrong path here 
   return sysconfig.get_config_vars()['INCLUDEPY']
+
+def get_win_python_lib():
+  vars = sysconfig.get_config_vars()
+  for k in ['prefix', 'installed_base', 'installed_platbase']:
+    if k not in vars:
+      continue
+    path = os.path.join(vars[k], 'libs', 'python' + vars['py_version_nodot'] + '.lib')
+    if os.path.exists(path):
+      return path
+  return None
 
 def prepend_variables(args, variables):
   for var in variables: 
@@ -278,6 +288,10 @@ class CMakeBuild(build_ext):
 
         if not is_win:
           libnuml_args.append('-DPYTHON_USE_DYNAMIC_LOOKUP=ON')
+        else:
+          lib_path = get_win_python_lib()
+          if lib_path is not None:
+            libnuml_args.append('-DPYTHON_LIBRARY={0}'.format(lib_path))
 
         cmake_args = cmake_args + libnuml_args
         
@@ -332,14 +346,14 @@ class CMakeBuild(build_ext):
 setup(name             = "python-libnuml",
       version          = VERSION,
       description      = "LibNuML Python API",
-      long_description = ("libNuML is a library for reading, writing and "+
-                          "manipulating NuML.  It is written in ISO C and C++, supports "+
-                          "NuML Level 1, Version 1, and runs on Linux, Microsoft "+
-                          "Windows, and Apple MacOS X.  For more information "+
+      long_description = ("libNuML is a library for reading, writing and " +
+                          "manipulating NuML. It is written in ISO C and C++, supports " +
+                          "NuML Level 1, Version 1, and runs on Linux, Microsoft " +
+                          "Windows, and Apple MacOS X. For more information " +
                           "about SEDML, please see http://github.com/numl/numl/."),
       license          = "BSD",
       author           = "Frank T. Bergmann",
-      author_email     = "fbergman@caltech.edu",
+      author_email     = "frank.bergmann@bioquant.uni-heidelberg.de",
       url              = "https://github.com/NuML/NuML/tree/master/libnuml",
       packages         = ["libnuml"],
       package_dir      = {'libnuml': 'libnuml'},
@@ -347,5 +361,6 @@ setup(name             = "python-libnuml",
       ext_modules=[CMakeExtension('_libnuml')],
       cmdclass={
         'build_ext': CMakeBuild,
-      }
+      },
+      setup_requires=['cmake==3.31.6', 'swig==4.2.1']
 )
